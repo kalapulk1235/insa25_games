@@ -1,21 +1,162 @@
 <!DOCTYPE html>
 <html lang="et">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Christopher — mäng</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; background: #0a0e12; color: #e8f0ff; display: grid; place-items: center; padding: 1.5rem; }
-    a { color: #5eead4; }
-    .box { text-align: center; max-width: 28rem; line-height: 1.6; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Christopher — rütmimäng</title>
+<style>
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: system-ui, Arial, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+#game {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.lane {
+  width: 80px;
+  height: 400px;
+  background: #222;
+  border: 2px solid #555;
+  position: relative;
+  overflow: hidden;
+}
+
+.note {
+  width: 100%;
+  height: 30px;
+  background: #00d4ff;
+  position: absolute;
+  top: -40px;
+  border-radius: 8px;
+}
+
+.hit-zone {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 50px;
+  background: rgba(0, 255, 0, 0.3);
+  border-top: 2px solid lime;
+}
+
+#score {
+  margin-top: 20px;
+  font-size: 24px;
+}
+
+#controls {
+  margin-top: 10px;
+  color: #aaa;
+}
+
+.back {
+  margin-top: 1rem;
+}
+
+.back a {
+  color: #5eead4;
+}
+</style>
 </head>
 <body>
-  <div class="box">
-    <h1>Christopher</h1>
-    <p>Siia tuleb sinu mäng. Asenda see fail või lisa siia oma HTML/CSS/JS.</p>
-    <p><a href="../../index.html">← tagasi dashboardile</a></p>
+
+<h1>Rütmimäng</h1>
+
+<div id="game">
+  <div class="lane" data-key="a">
+    <div class="hit-zone"></div>
   </div>
+
+  <div class="lane" data-key="s">
+    <div class="hit-zone"></div>
+  </div>
+
+  <div class="lane" data-key="d">
+    <div class="hit-zone"></div>
+  </div>
+</div>
+
+<div id="score">Punktid: 0</div>
+<div id="controls">Vajuta klahve: A S D</div>
+
+<p class="back"><a href="../../index.html">← tagasi dashboardile</a></p>
+
+<script>
+const lanes = document.querySelectorAll(".lane");
+const scoreText = document.getElementById("score");
+
+let score = 0;
+const notes = [];
+
+function createNote() {
+  const laneIndex = Math.floor(Math.random() * lanes.length);
+  const lane = lanes[laneIndex];
+
+  const note = document.createElement("div");
+  note.classList.add("note");
+  note.style.top = "-40px";
+
+  lane.appendChild(note);
+
+  notes.push({
+    element: note,
+    lane: lane,
+    y: -40
+  });
+}
+
+function updateNotes() {
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const note = notes[i];
+    note.y += 4;
+    note.element.style.top = note.y + "px";
+
+    if (note.y > 400) {
+      note.element.remove();
+      notes.splice(i, 1);
+    }
+  }
+}
+
+function checkHit(key) {
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const note = notes[i];
+    const laneKey = note.lane.dataset.key;
+
+    if (laneKey === key && note.y > 320 && note.y < 380) {
+      score++;
+      scoreText.textContent = "Punktid: " + score;
+      note.element.remove();
+      notes.splice(i, 1);
+    }
+  }
+}
+
+document.addEventListener("keydown", e => {
+  checkHit(e.key.toLowerCase());
+});
+
+setInterval(createNote, 1000);
+
+function gameLoop() {
+  updateNotes();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
 </body>
 </html>
