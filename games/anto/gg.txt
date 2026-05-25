@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stack Balance</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      overflow: hidden;
+      background: linear-gradient(to bottom, #87ceeb, #dff6ff);
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+      background: transparent;
+    }
+
+    .ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      color: #222;
+      z-index: 10;
+      user-select: none;
+    }
+
+    .ui h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .ui p {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    .game-over {
+      position: absolute;
+      inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background: rgba(0,0,0,0.45);
+      color: white;
+      z-index: 20;
+    }
+
+    .game-over h2 {
+      font-size: 52px;
+      margin-bottom: 15px;
+    }
+
+    .game-over button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 20px;
+      cursor: pointer;
+      background: white;
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 14px;
+      width: 100%;
+      text-align: center;
+      color: #333;
+      font-size: 18px;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="ui">
+  <h1>Stack Balance</h1>
+  <p>Score: <span id="score">0</span></p>
+</div>
+
+<div class="game-over" id="gameOver">
+  <h2>Game Over</h2>
+  <p id="finalScore"></p>
+  <br>
+  <button onclick="restartGame()">Play Again</button>
+</div>
+
+<div class="hint">
+  Click anywhere to drop the moving block
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreEl = document.getElementById("score");
+const gameOverEl = document.getElementById("gameOver");
+const finalScoreEl = document.getElementById("finalScore");
+
+const gravity = 0.45;
+
+let blocks = [];
+let currentBlock;
+let score = 0;
+let gameEnded = false;
+let cameraY = 0;
+
+class Block {
+  constructor(x, y, width, height, color) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.color = color;
+
+    this.vx = 0;
+    this.vy = 0;
+
+    this.dropped = false;
+    this.movingRight = true;
+  }
+
+  update() {
+    if (!this.dropped) {
+      const speed = 4;
+
+      if (this.movingRight) {
+        this.x += speed;
+        if (this.x + this.width > canvas.width - 40) {
+          this.movingRight = false;
+        }
+      } else {
+        this.x -= speed;
+        if (this.x < 40) {
+          this.movingRight = true;
+        }
+      }
+    } else {
+      this.vy += gravity;
+      this.y += this.vy;
+
+      let landed = false;
+
+      for (let block of blocks) {
+        if (block === this) continue;
+
+        const touching =
+          this.x + this.width > block.x &&
+          this.x < block.x + block.width &&
+          this.y + this.height >= block.y &&
+          this.y + this.height <= block.y + 20 &&
+          this.vy >= 0;
+
+        if (touching) {
+          this.y = block.y - this.height;
+          this.vy = 0;
+          landed = true;
+
+          // Balance check
+          const center = this.x + this.width / 2;
+          const supportLeft = block.x;
+          const supportRight = block.x + block.width;
+
+          if (center < supportLeft || center > supportRight) {
+            endGame();
+          }
+        }
+      }
+
+      // Floor collision
+      if (this.y + this.height >= canvas.height - 40) {
+        this.y = canvas.height - 40 - this.height;
+        this.vy = 0;
+        landed = true;
+      }
+
+      if (landed && this === currentBlock) {
+        score++;
+        scoreEl.textContent = score;
+
+        cameraY = Math.max(cameraY, canvas.height - this.y - 300);
+
+        spawnBlock();
+      }
+    }
+  }
+
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(
+      this.x,
+      this.y - cameraY,
+      this.width,
+      this.height
+    );
+
+    // top highlight
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(
+      this.x,
+      this.y - cameraY,
+      this.width,
+      5
+    );
+  }
+}
+
+function randomColor() {
+  const colors = [
+    "#ff6b6b",
+    "#ffd93d",
+    "#6bcB77",
+    "#4d96ff",
+    "#845ec2",
+    "#ff9671"
+  ];
+
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function spawnBlock() {
+  const topBlock = blocks[blocks.length - 1];
+
+  const width = Math.max(70, 130 - score * 2);
+
+  currentBlock = new Block(
+    50,
+    topBlock.y - 90,
+    width,
+    28,
+    randomColor()
+  );
+
+  blocks.push(currentBlock);
+}
+
+function setupGame() {
+  blocks = [];
+  score = 0;
+  gameEnded = false;
+  cameraY = 0;
+
+  scoreEl.textContent = score;
+  gameOverEl.style.display = "none";
+
+  // Base block
+  const base = new Block(
+    canvas.width / 2 - 110,
+    canvas.height - 80,
+    220,
+    40,
+    "#444"
+  );
+
+  base.dropped = true;
+
+  blocks.push(base);
+
+  spawnBlock();
+}
+
+function endGame() {
+  gameEnded = true;
+  finalScoreEl.textContent = `Your score: ${score}`;
+  gameOverEl.style.display = "flex";
+}
+
+function restartGame() {
+  setupGame();
+}
+
+window.addEventListener("click", () => {
+  if (gameEnded) return;
+
+  if (currentBlock && !currentBlock.dropped) {
+    currentBlock.dropped = true;
+  }
+});
+
+function drawBackground() {
+  ctx.fillStyle = "#dff6ff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Simple tower shadow
+  ctx.fillStyle = "rgba(0,0,0,0.06)";
+  ctx.fillRect(canvas.width / 2 - 140, 0, 280, canvas.height);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  drawBackground();
+
+  for (let block of blocks) {
+    block.update();
+    block.draw();
+  }
+}
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+setupGame();
+animate();
+</script>
+
+</body>
+</html>
